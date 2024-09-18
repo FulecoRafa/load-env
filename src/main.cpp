@@ -1,11 +1,11 @@
-#include <cstdio>
-#include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <cstring>
 #include <string>
+
+#include "validate.hpp"
 
 class Defer {
     std::function<void()> m_func;
@@ -44,6 +44,10 @@ int read_env_file(std::stringstream &result, const char* filename) {
 #ifdef DEBUG
         std::cerr << "Line: " << line << "\n";
 #endif
+        if (!validate_envvar(line)) {
+            std::cerr << "Invalid line in " << filename << " : " << line << "\n";
+            exit(1);
+        }
         result << line << " ";
     }
     return 0;
@@ -78,10 +82,15 @@ int run_command(std::string cmd) {
     return true;
 }
 
-int main(int argc, char**argv, char**envvar) {
+int main(int argc, char**argv) {
+    if (argc <= 1) {
+        std::cerr << "Expected arguments\n";
+        exit(1);
+    }
 
     std::stringstream env, command;
     arg_t active_type = arg_t::ENV;
+    uint found_ddash(0);
     bool should_confirm(false);
     for (int i = 1; i < argc; i++) {
         auto arg = argv[i];
@@ -89,12 +98,20 @@ int main(int argc, char**argv, char**envvar) {
         std::cerr << i << " -> `" << arg << "`\n";
 #endif
         if (std::strncmp("--", arg, 3) == 0) {
+            if (++found_ddash > 1) {
+                std::cerr << "Expected a single `--`\n";
+                exit(1);
+            }
             active_type = arg_t::CMD;
         } else if (std::strncmp("--confirm", arg, 10) == 0) {
             should_confirm = true;
         } else {
             handle_arg(env, command, arg, active_type);
         }
+    }
+    if (found_ddash != 1 || command.str().length() == 0) {
+        std::cerr << "No command provided\n";
+        exit(1);
     }
 
     std::string result = env.str() + command.str();

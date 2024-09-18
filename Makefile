@@ -1,6 +1,6 @@
 CC=g++
 build:
-	${CC} src/main.cpp -o main
+	${CC} src/*.cpp -o main
 run: build
 	./main
 install: build
