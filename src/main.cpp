@@ -7,6 +7,8 @@
 
 #include "validate.hpp"
 
+char* program_name;
+
 class Defer {
     std::function<void()> m_func;
 public:
@@ -15,6 +17,18 @@ public:
     Defer& operator=(const Defer&)=delete;
     Defer(const Defer&)=delete;
 };
+
+void print_usage() {
+    std::cerr
+        << "Usage:" << '\n'
+        << '\t' << program_name << " .env-file1 [.env-file2 [...]] -- mycmd args..." << '\n'
+        << '\n'
+        << "Flags:"
+        << '\t' << "--confirm" << '\t' << "Adds a confirmation prompt that shows command before running" << '\n'
+        << '\n'
+        << "Example:"
+        << '\t' << program_name << " .env -- echo $HELLO" << '\n';
+}
 
 bool confirm(std::string command) {
     char answer;
@@ -45,6 +59,7 @@ int read_env_file(std::stringstream &result, const char* filename) {
         std::cerr << "Line: " << line << "\n";
 #endif
         if (!validate_envvar(line)) {
+            print_usage();
             std::cerr << "Invalid line in " << filename << " : " << line << "\n";
             exit(1);
         }
@@ -84,9 +99,12 @@ int run_command(std::string cmd) {
 
 int main(int argc, char**argv) {
     if (argc <= 1) {
+        print_usage();
         std::cerr << "Expected arguments\n";
         exit(1);
     }
+
+    program_name = argv[0];
 
     std::stringstream env, command;
     arg_t active_type = arg_t::ENV;
@@ -99,6 +117,7 @@ int main(int argc, char**argv) {
 #endif
         if (std::strncmp("--", arg, 3) == 0) {
             if (++found_ddash > 1) {
+                print_usage();
                 std::cerr << "Expected a single `--`\n";
                 exit(1);
             }
@@ -110,6 +129,7 @@ int main(int argc, char**argv) {
         }
     }
     if (found_ddash != 1 || command.str().length() == 0) {
+        print_usage();
         std::cerr << "No command provided\n";
         exit(1);
     }
